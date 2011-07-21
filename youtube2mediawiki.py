@@ -332,7 +332,7 @@ if __name__ == "__main__":
     parser = OptionParser(usage=usage)
     parser.add_option('-u', '--username', dest='username', help='wiki username', type='string')
     parser.add_option('-p', '--password', dest='password', help='wiki password', type='string')
-    parser.add_option('-w', '--url', dest='url', help='wiki api url',
+    parser.add_option('-w', '--url', dest='url', help='wiki api url [default:http://commons.wikimedia.org/w/api.php]',
                       default='http://commons.wikimedia.org/w/api.php', type='string')
     (opts, args) = parser.parse_args()
 

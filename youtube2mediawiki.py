@@ -97,6 +97,46 @@ class Youtube:
             info['license'] = re.sub('<.+?>', '', info['license']).strip()
         return info
 
+    def subtitle_languages(self, id):
+        url = "http://www.youtube.com/api/timedtext?hl=en&type=list&tlangs=1&v=%s&asrs=1"%id
+        u = self.opener.open(url)
+        data = u.read()
+        u.close()
+        xml = parseString(data)
+        return [t.getAttribute('lang_code') for t in xml.getElementsByTagName('track')]
+
+    def subtitles(self, id, language='en'):
+
+        def format_time(seconds):
+            ms = int(seconds * 1000)
+            h = int(ms % 86400000 / 3600000)
+            m = int(ms % 3600000 / 60000)
+            s = int(ms % 60000 / 1000)
+            ms = ms % 1000
+            return "%02d:%02d:%02d,%03d" % (h, m, s, ms)
+
+        url = "http://www.youtube.com/api/timedtext?hl=en&v=%s&type=track&lang=%s&name&kind"%(id, language)
+        u = self.opener.open(url)
+        data = u.read()
+        u.close()
+        xml = parseString(data)
+        srt = u''
+        n = 1
+        for t in xml.getElementsByTagName('text'):
+            start = float(t.getAttribute('start'))
+            duration = t.getAttribute('dur')
+            if not duration: duration = '2'
+            end = start + float(duration)
+            
+            text = t.firstChild.data
+            srt += u'%s\n%s --> %s\n%s\n\n' % (
+                    n, 
+                    format_time(start),
+                    format_time(end),
+                    text)
+            n += 1
+        return srt
+
     def download(self, id, filename):
         #find info on html5 videos in html page and decode json blobs
         url = "http://www.youtube.com/watch?v=%s" % id

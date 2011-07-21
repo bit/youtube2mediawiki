@@ -1,0 +1,15 @@
+youtube2mediawiki
+
+import youtube videos into mediawiki.
+youtube2mediawiki allows you to download WebM videos from Youtube and import them into mediawiki.
+
+Usage: youtube2mediawiki.py [options] youtubeid
+
+ Options:
+  -h, --help            show this help message and exit
+  -u USERNAME, --username=USERNAME
+                        wiki username
+  -p PASSWORD, --password=PASSWORD
+                        wiki password
+  -w URL, --url=URL     wiki api url
+

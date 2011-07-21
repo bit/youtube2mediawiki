@@ -3,6 +3,7 @@
 # vi:si:et:sw=4:sts=4:ts=4
 # GPL 3+ 2011
 import cookielib
+from htmlentitydefs import name2codepoint
 import itertools
 import json
 import mimetools
@@ -38,6 +39,41 @@ DESCRIPTION = '''
 
 %(wiki_categories)s
 '''
+
+# This pattern matches a character entity reference (a decimal numeric
+# references, a hexadecimal numeric reference, or a named reference).
+charrefpat = re.compile(r'&(#(\d+|x[\da-fA-F]+)|[\w.:-]+);?')
+
+def decode_html(html):
+    """
+    >>> decodeHtml('me &amp; you and &#36;&#38;%')
+    u'me & you and $&%'
+    """
+    if type(html) != unicode:
+        html = unicode(html)[:]
+    if type(html) is unicode:
+        uchr = unichr
+    else:
+        uchr = lambda value: value > 255 and unichr(value) or chr(value)
+    def entitydecode(match, uchr=uchr):
+        entity = match.group(1)
+        if entity.startswith('#x'):
+            return uchr(int(entity[2:], 16))
+        elif entity.startswith('#'):
+            return uchr(int(entity[1:]))
+        elif entity in name2codepoint:
+            return uchr(name2codepoint[entity])
+        else:
+            return match.group(0)
+    return charrefpat.sub(entitydecode, html).replace(u'\xa0', ' ')
+
+def format_time(seconds):
+    ms = int(seconds * 1000)
+    h = int(ms % 86400000 / 3600000)
+    m = int(ms % 3600000 / 60000)
+    s = int(ms % 60000 / 1000)
+    ms = ms % 1000
+    return "%02d:%02d:%02d,%03d" % (h, m, s, ms)
 
 class Youtube:
     '''
@@ -107,13 +143,6 @@ class Youtube:
 
     def subtitles(self, id, language='en'):
 
-        def format_time(seconds):
-            ms = int(seconds * 1000)
-            h = int(ms % 86400000 / 3600000)
-            m = int(ms % 3600000 / 60000)
-            s = int(ms % 60000 / 1000)
-            ms = ms % 1000
-            return "%02d:%02d:%02d,%03d" % (h, m, s, ms)
 
         url = "http://www.youtube.com/api/timedtext?hl=en&v=%s&type=track&lang=%s&name&kind"%(id, language)
         u = self.opener.open(url)
@@ -121,19 +150,19 @@ class Youtube:
         u.close()
         xml = parseString(data)
         srt = u''
-        n = 1
+        n = 0
         for t in xml.getElementsByTagName('text'):
             start = float(t.getAttribute('start'))
             duration = t.getAttribute('dur')
-            if not duration: duration = '2'
+            if not duration:
+                duration = '2'
             end = start + float(duration)
-            
             text = t.firstChild.data
             srt += u'%s\n%s --> %s\n%s\n\n' % (
                     n, 
                     format_time(start),
                     format_time(end),
-                    text)
+                    decode_html(text))
             n += 1
         return srt
 
@@ -334,6 +363,15 @@ class Mediawiki(object):
             'token': token
         }, {'file': filename})
 
+    def edit_page(self, pagename, text, comment=''):
+        token = self.get_token(pagename, 'edit')
+        return self.api('edit', {
+            'comment': comment,
+            'text': text,
+            'title': pagename,
+            'token': token
+        })
+
 def safe_name(s):
     s = s.strip()
     s = s.replace(' ', '_')
@@ -351,6 +389,15 @@ def import_youtube(youtube_id, username, password, mediawiki_url):
     if yt.download(youtube_id, filename):
         r = wiki.upload(filename, 'Imported from %s'%info['url'], description)
         if r['upload']['result'] == 'Success':
+            languages = yt.subtitle_languages(youtube_id)
+            for lang in languages:
+                srt = yt.subtitles(youtube_id, lang)
+                if srt:
+                    name = u'TimedText:%s.%s.srt' % (
+                        os.path.basename(filename).replace(' ', '_'),
+                        lang
+                    )
+                    r = wiki.edit_page(name, srt, 'Imported from %s'%info['url'])
             print 'Uploaded to', r['upload']['imageinfo']['descriptionurl']
         else:
             print 'Upload failed.'

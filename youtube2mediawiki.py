@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # vi:si:et:sw=4:sts=4:ts=4
-# GPL 3+ 2011
+# MIT 2011
 import cookielib
 from htmlentitydefs import name2codepoint
 import itertools

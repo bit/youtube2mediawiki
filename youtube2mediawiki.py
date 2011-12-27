@@ -13,7 +13,7 @@ import re
 import shutil
 import tempfile
 import urllib2
-from urllib import urlencode
+from urllib import unquote_plus
 import webbrowser
 from xml.dom.minidom import parseString
 
@@ -90,19 +90,6 @@ class Youtube:
             ('Accept-Language', 'en-us, en;q=0.50')
         ]
 
-        #join html5 beta
-        url = 'http://www.youtube.com/html5'
-        u = self.opener.open(url)
-        data = u.read()
-        u.close()
-        token = re.compile("'XSRF_TOKEN': '(.*?)',").findall(data)[0]
-        u = self.opener.open(url, urlencode({
-            "enable_html5": "true",
-            "session_token": token
-        }))
-        u.read()
-        u.close()
-
     def info(self, id):
         info = {}
         url = "http://gdata.youtube.com/feeds/api/videos/%s?v=2" % id
@@ -143,7 +130,6 @@ class Youtube:
 
     def subtitles(self, id, language='en'):
 
-
         url = "http://www.youtube.com/api/timedtext?hl=en&v=%s&type=track&lang=%s&name&kind"%(id, language)
         u = self.opener.open(url)
         data = u.read()
@@ -172,29 +158,25 @@ class Youtube:
         u = self.opener.open(url)
         data = u.read()
         u.close()
-        match = re.compile('"html5_fmt_map": \[(.*?)\]').findall(data)
-        if match:
-            streams = match[0].replace('}, {', '}\n\n{').split('\n\n')
-            streams = map(json.loads, streams)
-        else:
-            streams = []
-
-        #get largest webm video
-        stream_type = 'video/webm; codecs="vp8.0, vorbis"'
-        webm = filter(lambda s: s['type'] == stream_type, streams)
-        large = filter(lambda s: s['quality'] == 'large', webm)
-        medium = filter(lambda s: s['quality'] == 'medium', webm)
-        if large:
-            url = large[0]['url']
-        elif medium:
-            url = medium[0]['url']
+        match = re.compile('"url_encoded_fmt_stream_map": "(.*?)"').findall(data)
+        streams = {}
+        stream_type = 'video/webm'
+        for x in match[0].split(','):
+            stream = {}
+            for s in x.split('\\u0026'):
+                key, value = s.split('=')
+                value = unquote_plus(value)
+                stream[key] = value
+            if stream['type'].startswith(stream_type):
+                streams[stream['itag']] = stream
+        if streams:
+            s = max(streams.keys())
+            url = streams[s][url]
         else:
             print "no WebM video found"
             return False
 
         #download video and save to file.
-        #this only works if you keep the cookies,
-        #just passing the url to wget will not work
         u = self.opener.open(url)
         f = open(filename, 'w')
         data = True

@@ -23,20 +23,20 @@ __version__ = 0.2
 DEBUG=1
 USER_AGENT='youtube2mediawiki/%s (+http://www.mediawiki.org/wiki/User:BotInc/youtube2mediawiki)' % __version__
 DESCRIPTION = '''
-== {{int:filedesc}} ==
+=={{int:filedesc}}==
 {{Information
-|Description={{%(description)s}}
-|Source={{Own}}
-|Author=%(author)s
-|Date=%(date)s
-|Permission=
+|description=%(description)s
+|source={{Own}}
+|author=%(author)s
+|date=%(date)s
+|permission=
 |other_versions=%(url)s
 }}
 
-<!--{{ImageUpload|full}}-->
 == {{int:license}} ==
-{{self|cc-by-sa-3.0,2.5,2.0,1.0}}
+{{self|cc-by-sa-3.0}}
 
+[[Category:Uploaded from Youtube]]
 %(wiki_categories)s
 '''
 

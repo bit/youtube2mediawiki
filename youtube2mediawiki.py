@@ -18,7 +18,7 @@ import webbrowser
 from xml.dom.minidom import parseString
 
 
-__version__ = 0.1
+__version__ = 0.2
 
 DEBUG=1
 USER_AGENT='youtube2mediawiki/%s (+http://www.mediawiki.org/wiki/User:BotInc/youtube2mediawiki)' % __version__
@@ -153,14 +153,13 @@ class Youtube:
         return srt
 
     def download(self, id, filename):
-        #find info on html5 videos in html page and decode json blobs
+        stream_type = 'video/webm'
         url = "http://www.youtube.com/watch?v=%s" % id
         u = self.opener.open(url)
         data = u.read()
         u.close()
         match = re.compile('"url_encoded_fmt_stream_map": "(.*?)"').findall(data)
         streams = {}
-        stream_type = 'video/webm'
         for x in match[0].split(','):
             stream = {}
             for s in x.split('\\u0026'):
@@ -171,7 +170,7 @@ class Youtube:
                 streams[stream['itag']] = stream
         if streams:
             s = max(streams.keys())
-            url = streams[s][url]
+            url = streams[s]['url']
         else:
             print "no WebM video found"
             return False

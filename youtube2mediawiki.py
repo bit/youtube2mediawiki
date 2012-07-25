@@ -370,6 +370,7 @@ def import_youtube(youtube_id, username, password, mediawiki_url):
     if yt.download(youtube_id, filename):
         r = wiki.upload(filename, 'Imported from %s'%info['url'], description)
         if r['upload']['result'] == 'Success':
+            result_url = r['upload']['imageinfo']['descriptionurl']
             languages = yt.subtitle_languages(youtube_id)
             for lang in languages:
                 srt = yt.subtitles(youtube_id, lang)
@@ -379,7 +380,7 @@ def import_youtube(youtube_id, username, password, mediawiki_url):
                         lang
                     )
                     r = wiki.edit_page(name, srt, 'Imported from %s'%info['url'])
-            print 'Uploaded to', r['upload']['imageinfo']['descriptionurl']
+            print 'Uploaded to', result_url
         else:
             print 'Upload failed.'
     else:

@@ -107,7 +107,10 @@ class Youtube:
         for cat in xml.getElementsByTagName('media:category'):
             info['categories'].append(cat.firstChild.data)
 
-        info['keywords'] = xml.getElementsByTagName('media:keywords')[0].firstChild.data.split(', ')
+        info['keywords'] = []
+        keywords = xml.getElementsByTagName('media:keywords')[0].firstChild
+        if keywords:
+            info['keywords'] = keywords.data.split(', ')
         info['wiki_categories'] = '\n'.join(['[[Category:%s]]'%c for c in info['categories']])
 
         url = "http://www.youtube.com/watch?v=%s" % id

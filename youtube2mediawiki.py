@@ -26,17 +26,17 @@ DESCRIPTION = '''
 =={{int:filedesc}}==
 {{Information
 |description=%(description)s
-|source={{Own}}
+|source=%(url)s
 |author=%(author)s
 |date=%(date)s
 |permission=
-|other_versions=%(url)s
+|other_versions=
 }}
 
 == {{int:license}} ==
-{{self|cc-by-sa-3.0}}
+{{cc-by-sa-3.0}}{{LicenseReview}}
 
-[[Category:Uploaded from Youtube]]
+[[Category:Uploaded with youtube2mediawiki]]
 %(wiki_categories)s
 '''
 

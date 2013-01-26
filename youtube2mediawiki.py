@@ -343,10 +343,10 @@ class Mediawiki(object):
         })['query']['pages']
         return '-1' in r and str(r['-1']['edittoken']) or None
 
-    def upload(self, filename, description, text):
+    def upload(self, filename, description, text, name=''):
         CHUNKSIZE = 5*1024*1024
         offset = 0
-        fn = os.path.basename(filename)
+        fn = name or os.path.basename(filename)
         pagename = 'File:' + fn.replace(' ', '_')
         token = self.get_token(pagename, 'edit')
         if not token:
@@ -427,7 +427,7 @@ def safe_name(s):
     s = s.replace('__', '_').replace('__', '_')
     return s
 
-def import_youtube(youtube_id, username, password, mediawiki_url):
+def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
     yt = Youtube()
     wiki = Mediawiki(mediawiki_url, username, password)
     info = yt.info(youtube_id)
@@ -435,7 +435,7 @@ def import_youtube(youtube_id, username, password, mediawiki_url):
     filename = os.path.join(d, u"%s.webm" % safe_name(info['title']))
     description = DESCRIPTION % info
     if yt.download(youtube_id, filename):
-        r = wiki.upload(filename, 'Imported from %s'%info['url'], description)
+        r = wiki.upload(filename, 'Imported from %s'%info['url'], description, name)
         if r and r.get('upload', {}).get('result') == 'Success':
             result_url = r['upload']['imageinfo']['descriptionurl']
             languages = yt.subtitle_languages(youtube_id)
@@ -472,6 +472,7 @@ if __name__ == "__main__":
     parser.add_option('-p', '--password', dest='password', help='wiki password', type='string')
     parser.add_option('-w', '--url', dest='url', help='wiki api url [default:http://commons.wikimedia.org/w/api.php]',
                       default='http://commons.wikimedia.org/w/api.php', type='string')
+    parser.add_option('-n', '--name', dest='name', help='name of file on wiki, by default title on youtube is used', type='string', default='')
     (opts, args) = parser.parse_args()
 
     if None in (opts.username, opts.password) or not args:
@@ -479,5 +480,5 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     youtube_id = parse_id(args[0])
-    import_youtube(youtube_id, opts.username, opts.password, opts.url)
+    import_youtube(youtube_id, opts.username, opts.password, opts.url, opts.name)
 

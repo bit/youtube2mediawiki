@@ -34,7 +34,7 @@ DESCRIPTION = '''
 }}
 
 == {{int:license}} ==
-{{cc-by-sa-3.0}}{{LicenseReview}}
+{{cc-by-3.0}}{{LicenseReview}}
 
 [[Category:Uploaded with youtube2mediawiki]]
 %(wiki_categories)s

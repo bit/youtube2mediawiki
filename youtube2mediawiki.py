@@ -91,6 +91,8 @@ class Youtube:
         ]
 
     def info(self, id):
+        def get_data(e):
+            return e.firstChild and e.firstChild.data or ''
         info = {}
         url = "http://gdata.youtube.com/feeds/api/videos/%s?v=2" % id
         u = self.opener.open(url)
@@ -98,8 +100,8 @@ class Youtube:
         u.close()
         xml = parseString(data)
         info['url'] = 'http://www.youtube.com/watch?v=%s'%id
-        info['title'] = xml.getElementsByTagName('title')[0].firstChild.data
-        info['description'] = xml.getElementsByTagName('media:description')[0].firstChild.data
+        info['title'] = get_data(xml.getElementsByTagName('title')[0])
+        info['description'] = get_data(xml.getElementsByTagName('media:description')[0])
         info['date'] = xml.getElementsByTagName('published')[0].firstChild.data.split('T')[0]
         info['author'] = "http://www.youtube.com/user/%s"%xml.getElementsByTagName('name')[0].firstChild.data
 
@@ -108,9 +110,9 @@ class Youtube:
             info['categories'].append(cat.firstChild.data)
 
         info['keywords'] = []
-        keywords = xml.getElementsByTagName('media:keywords')[0].firstChild
+        keywords = get_data(xml.getElementsByTagName('media:keywords')[0])
         if keywords:
-            info['keywords'] = keywords.data.split(', ')
+            info['keywords'] = keywords.split(', ')
         info['wiki_categories'] = '\n'.join(['[[Category:%s]]'%c for c in info['categories']])
 
         url = "http://www.youtube.com/watch?v=%s" % id

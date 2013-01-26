@@ -332,16 +332,20 @@ class Mediawiki(object):
         })
 
     def get_token(self, page, intoken='edit'):
-        return str(self.api('query', {
+        r = self.api('query', {
             'prop': 'info',
             'titles': page,
             'intoken': intoken
-        })['query']['pages']['-1']['edittoken'])
+        })['query']['pages']
+        return '-1' in r and str(r['-1']['edittoken']) or None
 
     def upload(self, filename, description, text):
         fn = os.path.basename(filename)
         pagename = 'File:' + fn.replace(' ', '_')
         token = self.get_token(pagename, 'edit')
+        if not token:
+            print "%s exists, can not upload" % pagename
+            return
         return self.api('upload', {
             'comment': description,
             'text': text,
@@ -374,7 +378,7 @@ def import_youtube(youtube_id, username, password, mediawiki_url):
     description = DESCRIPTION % info
     if yt.download(youtube_id, filename):
         r = wiki.upload(filename, 'Imported from %s'%info['url'], description)
-        if r['upload']['result'] == 'Success':
+        if r and r['upload']['result'] == 'Success':
             result_url = r['upload']['imageinfo']['descriptionurl']
             languages = yt.subtitle_languages(youtube_id)
             for lang in languages:

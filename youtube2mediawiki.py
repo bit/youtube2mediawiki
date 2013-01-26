@@ -16,11 +16,12 @@ import urllib2
 from urllib import unquote_plus
 import webbrowser
 from xml.dom.minidom import parseString
+from StringIO import StringIO
 
 
-__version__ = 0.2
+__version__ = 0.3
 
-DEBUG=1
+DEBUG=0
 USER_AGENT='youtube2mediawiki/%s (+http://www.mediawiki.org/wiki/User:BotInc/youtube2mediawiki)' % __version__
 DESCRIPTION = '''
 =={{int:filedesc}}==
@@ -313,7 +314,10 @@ class Mediawiki(object):
         for key in data:
             form.add_field(key, data[key])
         for key in files:
-            form.add_file(key, os.path.basename(files[key]), open(files[key]))
+            if isinstance(files[key], basestring):
+                form.add_file(key, os.path.basename(files[key]), open(files[key]))
+            else:
+                form.add_file(key, 'data.bin', files[key])
         return self.post(form)
 
     def login(self):
@@ -340,18 +344,72 @@ class Mediawiki(object):
         return '-1' in r and str(r['-1']['edittoken']) or None
 
     def upload(self, filename, description, text):
+        CHUNKSIZE = 5*1024*1024
+        offset = 0
         fn = os.path.basename(filename)
         pagename = 'File:' + fn.replace(' ', '_')
         token = self.get_token(pagename, 'edit')
         if not token:
             print "%s exists, can not upload" % pagename
             return
-        return self.api('upload', {
+        chunk = StringIO()
+        filesize = os.stat(filename).st_size
+        f = open(filename)
+        f.seek(offset)
+        chunk.write(f.read(CHUNKSIZE))
+        f.close()
+        chunk.seek(0)
+        #Upload first chunk and get filekey for further chunks
+        r = self.api('upload', {
             'comment': description,
-            'text': text,
             'filename': fn,
+            'filesize': str(filesize),
+            'offset': str(offset),
             'token': token
-        }, {'file': filename})
+        }, {'chunk': chunk})
+        offset += CHUNKSIZE
+        if 'error' in r:
+            if DEBUG:
+                print r['error']
+            return r
+        filekey = r['upload']['filekey']
+        while offset < filesize:
+            if DEBUG:
+                print r
+            if 'error' in r or r.get('status', {}).get('code', 200) != 200 or \
+                'error' in r.get('upload', {}):
+                return r
+            chunk = StringIO()
+            f = open(filename)
+            f.seek(offset)
+            chunk.write(f.read(CHUNKSIZE))
+            f.close()
+            chunk.seek(0)
+            #Upload chunk at offset
+            r = self.api('upload', {
+                'filename': fn,
+                'filesize': str(filesize),
+                'offset': str(offset),
+                'filekey': filekey,
+                'token': token
+            }, {'chunk': chunk})
+            if filekey != r['upload']['filekey']:
+                if DEBUG:
+                    print 'WANRING: filekey changed:', filekey , r['upload']['filekey']
+                filekey = r['upload']['filekey']
+
+            offset += CHUNKSIZE
+        #Finalize upload and move out of stash
+        r = self.api('upload', {
+            'filename': fn,
+            'filekey': filekey,
+            'token': token,
+            'text': text,
+            'comment': description
+        })
+        if DEBUG:
+            print r
+        return r
 
     def edit_page(self, pagename, text, comment=''):
         token = self.get_token(pagename, 'edit')
@@ -378,7 +436,7 @@ def import_youtube(youtube_id, username, password, mediawiki_url):
     description = DESCRIPTION % info
     if yt.download(youtube_id, filename):
         r = wiki.upload(filename, 'Imported from %s'%info['url'], description)
-        if r and r['upload']['result'] == 'Success':
+        if r and r.get('upload', {}).get('result') == 'Success':
             result_url = r['upload']['imageinfo']['descriptionurl']
             languages = yt.subtitle_languages(youtube_id)
             for lang in languages:
@@ -391,6 +449,8 @@ def import_youtube(youtube_id, username, password, mediawiki_url):
                     r = wiki.edit_page(name, srt, 'Imported from %s'%info['url'])
             print 'Uploaded to', result_url
         else:
+            if DEBUG:
+                print r
             print 'Upload failed.'
     else:
         print 'Download failed.'

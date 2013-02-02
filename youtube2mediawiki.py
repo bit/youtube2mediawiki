@@ -470,11 +470,14 @@ if __name__ == "__main__":
     usage = "Usage: %prog [options] youtubeid"
     parser = OptionParser(usage=usage)
     parser.add_option('-u', '--username', dest='username', help='wiki username', type='string')
-    parser.add_option('-p', '--password', dest='password', help='wiki password', type='string')
+    parser.add_option('-p', '--password', dest='password', help='wiki password\n(can also be provided via Y2M_PASSWORD environment vairable)', type='string')
     parser.add_option('-w', '--url', dest='url', help='wiki api url [default:http://commons.wikimedia.org/w/api.php]',
                       default='http://commons.wikimedia.org/w/api.php', type='string')
     parser.add_option('-n', '--name', dest='name', help='name of file on wiki, by default title on youtube is used', type='string', default='')
     (opts, args) = parser.parse_args()
+
+    if not opts.password:
+        opts.password = os.environ.get('Y2M_PASSWORD')
 
     if None in (opts.username, opts.password) or not args:
         parser.print_help()

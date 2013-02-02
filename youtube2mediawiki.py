@@ -424,6 +424,7 @@ def safe_name(s):
     s = s.strip()
     s = s.replace(' ', '_')
     s = re.sub(r'[:/\\]', '_', s)
+    s = re.sub(r'[<>\[\]\|\{\}$"\/]', '-', s)
     s = s.replace('__', '_').replace('__', '_')
     return s
 

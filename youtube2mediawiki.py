@@ -104,7 +104,7 @@ class Youtube:
         info['title'] = get_data(xml.getElementsByTagName('title')[0])
         info['description'] = get_data(xml.getElementsByTagName('media:description')[0])
         info['date'] = xml.getElementsByTagName('published')[0].firstChild.data.split('T')[0]
-        info['author'] = "http://www.youtube.com/user/%s"%xml.getElementsByTagName('name')[0].firstChild.data
+        info['author'] = "https://www.youtube.com/user/%s"%xml.getElementsByTagName('uri')[0].firstChild.data.split('/')[-1]
 
         info['categories'] = []
         for cat in xml.getElementsByTagName('media:category'):

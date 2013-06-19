@@ -23,8 +23,7 @@ __version__ = 0.3
 
 DEBUG=0
 USER_AGENT='youtube2mediawiki/%s (+http://www.mediawiki.org/wiki/User:BotInc/youtube2mediawiki)' % __version__
-DESCRIPTION = '''
-=={{int:filedesc}}==
+DESCRIPTION = '''=={{int:filedesc}}==
 {{Information
 |description=%(description)s
 |source=%(url)s

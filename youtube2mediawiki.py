@@ -21,7 +21,7 @@ from StringIO import StringIO
 
 __version__ = 0.3
 
-DEBUG=0
+DEBUG=False
 USER_AGENT='youtube2mediawiki/%s (+http://www.mediawiki.org/wiki/User:BotInc/youtube2mediawiki)' % __version__
 DESCRIPTION = '''=={{int:filedesc}}==
 {{Information
@@ -370,6 +370,8 @@ class Mediawiki(object):
         if 'error' in r:
             if DEBUG:
                 print r['error']
+            elif 'info' in r['error']:
+                print r['error']['info']
             return r
         filekey = r['upload']['filekey']
         while offset < filesize:
@@ -473,8 +475,9 @@ if __name__ == "__main__":
     parser.add_option('-w', '--url', dest='url', help='wiki api url [default:http://commons.wikimedia.org/w/api.php]',
                       default='http://commons.wikimedia.org/w/api.php', type='string')
     parser.add_option('-n', '--name', dest='name', help='name of file on wiki, by default title on youtube is used', type='string', default='')
+    parser.add_option('-d', '--debug', dest='debug',
+        help='output debug information', action="store_true")
     (opts, args) = parser.parse_args()
-
     if not opts.password:
         opts.password = os.environ.get('Y2M_PASSWORD')
 
@@ -482,6 +485,7 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(-1)
 
+    DEBUG = opts.debug
     youtube_id = parse_id(args[0])
     import_youtube(youtube_id, opts.username, opts.password, opts.url, opts.name)
 

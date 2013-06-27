@@ -396,7 +396,7 @@ class Mediawiki(object):
             }, {'chunk': chunk})
             if filekey != r['upload']['filekey']:
                 if DEBUG:
-                    print 'WANRING: filekey changed:', filekey , r['upload']['filekey']
+                    print 'WARNING: filekey changed:', filekey , r['upload']['filekey']
                 filekey = r['upload']['filekey']
 
             offset += CHUNKSIZE

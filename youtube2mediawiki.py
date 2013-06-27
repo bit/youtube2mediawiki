@@ -445,7 +445,7 @@ def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
                 srt = yt.subtitles(youtube_id, lang)
                 if srt:
                     name = u'TimedText:%s.%s.srt' % (
-                        os.path.basename(filename).replace(' ', '_'),
+                        (name or os.path.basename(filename)).replace(' ', '_'),
                         lang
                     )
                     r = wiki.edit_page(name, srt, 'Imported from %s'%info['url'])

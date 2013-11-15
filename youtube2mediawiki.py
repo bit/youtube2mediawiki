@@ -453,7 +453,7 @@ def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
         else:
             if DEBUG:
                 print r
-            print 'Upload failed.'
+            print 'Upload failed. Consider using the --debug option to identify the issue.'
     else:
         print 'Download failed.'
     shutil.rmtree(d)

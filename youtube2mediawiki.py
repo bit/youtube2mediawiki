@@ -33,8 +33,9 @@ DESCRIPTION = '''=={{int:filedesc}}==
 |other_versions=
 }}
 
-== {{int:license}} ==
-{{cc-by-3.0}}{{LicenseReview}}
+== {{int:license-header}} ==
+{{cc-by-3.0}}
+{{LicenseReview}}
 
 [[Category:Uploaded with youtube2mediawiki]]
 %(wiki_categories)s

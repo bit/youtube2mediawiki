@@ -176,7 +176,14 @@ class Youtube:
                 streams[stream['itag']] = stream
         if streams:
             s = max(streams.keys())
-            url = '%s&signature=%s' % (streams[s]['url'], streams[s]['sig'])
+            if 'sig' in streams[s]:
+                url = '%s&signature=%s' % (streams[s]['url'], streams[s]['sig'])
+            elif 'url' in streams[s]:
+                url = streams[s]['url']
+            else:
+                print 'Could not find a video url'
+                sys.exit(1)
+
         else:
             print "no WebM video found"
             return False

@@ -353,6 +353,8 @@ class Mediawiki(object):
     def upload(self, filename, description, text, name=''):
         CHUNKSIZE = 5*1024*1024
         offset = 0
+        name = re.sub(re.compile('^File:', re.IGNORECASE), '', name)
+        name = re.sub(re.compile('\.webm$', re.IGNORECASE), '', name) + '.webm'
         fn = name or os.path.basename(filename)
         pagename = 'File:' + fn.replace(' ', '_')
         token = self.get_token(pagename, 'edit')
@@ -496,4 +498,3 @@ if __name__ == "__main__":
     DEBUG = opts.debug
     youtube_id = parse_id(args[0])
     import_youtube(youtube_id, opts.username, opts.password, opts.url, opts.name)
-

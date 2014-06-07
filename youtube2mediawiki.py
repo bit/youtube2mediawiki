@@ -353,8 +353,9 @@ class Mediawiki(object):
     def upload(self, filename, description, text, name=''):
         CHUNKSIZE = 5*1024*1024
         offset = 0
-        name = re.sub(re.compile('^File:', re.IGNORECASE), '', name)
-        name = re.sub(re.compile('\.webm$', re.IGNORECASE), '', name) + '.webm'
+        if len(name) > 0:
+            name = re.sub(re.compile('^File:', re.IGNORECASE), '', name)
+            name = re.sub(re.compile('\.webm$', re.IGNORECASE), '', name) + '.webm'
         fn = name or os.path.basename(filename)
         pagename = 'File:' + fn.replace(' ', '_')
         token = self.get_token(pagename, 'edit')
@@ -463,7 +464,8 @@ def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
         else:
             if DEBUG:
                 print r
-            print 'Upload failed. Consider using the --debug option to identify the issue.'
+            else:
+                print 'Upload failed. Consider using the --debug option to identify the issue.'
     else:
         print 'Download failed.'
     shutil.rmtree(d)

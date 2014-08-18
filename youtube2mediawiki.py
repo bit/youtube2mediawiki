@@ -22,6 +22,7 @@ from StringIO import StringIO
 __version__ = 0.3
 
 DEBUG=False
+IGNORE_WARNINGS=False
 USER_AGENT='youtube2mediawiki/%s (+http://www.mediawiki.org/wiki/User:BotInc/youtube2mediawiki)' % __version__
 DESCRIPTION = '''=={{int:filedesc}}==
 {{Information
@@ -86,8 +87,8 @@ class Youtube:
         self.cj = cookielib.CookieJar()
         self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
         self.opener.addheaders = [
-	        ('User-Agent',
-	         'Mozilla/5.0 (X11; Linux i686; rv:2.0) Gecko/20100101 Firefox/4.0'),
+            ('User-Agent',
+             'Mozilla/5.0 (X11; Linux i686; rv:2.0) Gecko/20100101 Firefox/4.0'),
             ('Accept-Language', 'en-us, en;q=0.50')
         ]
 
@@ -283,7 +284,7 @@ class Mediawiki(object):
         self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj),
                                            urllib2.HTTPHandler(debuglevel=0))
         self.opener.addheaders = [
-	        ('User-Agent', USER_AGENT)
+            ('User-Agent', USER_AGENT)
         ]
         r = self.login()
         if not r['login']['result'] == 'Success':
@@ -370,13 +371,16 @@ class Mediawiki(object):
         f.close()
         chunk.seek(0)
         #Upload first chunk and get filekey for further chunks
-        r = self.api('upload', {
+        args_upload = {
             'comment': description,
             'filename': fn,
             'filesize': str(filesize),
             'offset': str(offset),
             'token': token
-        }, {'chunk': chunk})
+        }
+        if IGNORE_WARNINGS:
+            args_upload['ignorewarnings'] = ''
+        r = self.api('upload', args_upload, {'chunk': chunk})
         offset += CHUNKSIZE
         if 'error' in r:
             if DEBUG:
@@ -398,13 +402,16 @@ class Mediawiki(object):
             f.close()
             chunk.seek(0)
             #Upload chunk at offset
-            r = self.api('upload', {
+            args_upload = {
                 'filename': fn,
                 'filesize': str(filesize),
                 'offset': str(offset),
                 'filekey': filekey,
                 'token': token
-            }, {'chunk': chunk})
+            }
+            if IGNORE_WARNINGS:
+                args_upload['ignorewarnings'] = ''
+            r = self.api('upload', args_upload, {'chunk': chunk})
             if filekey != r['upload']['filekey']:
                 if DEBUG:
                     print 'WARNING: filekey changed:', filekey , r['upload']['filekey']
@@ -412,13 +419,16 @@ class Mediawiki(object):
 
             offset += CHUNKSIZE
         #Finalize upload and move out of stash
-        r = self.api('upload', {
+        args_upload = {
             'filename': fn,
             'filekey': filekey,
             'token': token,
             'text': text,
             'comment': description
-        })
+        }
+        if IGNORE_WARNINGS:
+            args_upload['ignorewarnings'] = ''
+        r = self.api('upload', args_upload)
         if DEBUG:
             print r
         return r
@@ -487,8 +497,8 @@ if __name__ == "__main__":
     parser.add_option('-w', '--url', dest='url', help='wiki api url [default:http://commons.wikimedia.org/w/api.php]',
                       default='http://commons.wikimedia.org/w/api.php', type='string')
     parser.add_option('-n', '--name', dest='name', help='name of file on wiki, by default title on youtube is used', type='string', default='')
-    parser.add_option('-d', '--debug', dest='debug',
-        help='output debug information', action="store_true")
+    parser.add_option('-d', '--debug', dest='debug', help='output debug information', action="store_true")
+    parser.add_option('-i', '--ignore-warnings', dest='ignorewarnings', help='ignore warnings during upload', action="store_true")
     (opts, args) = parser.parse_args()
     if not opts.password:
         opts.password = os.environ.get('Y2M_PASSWORD')
@@ -498,5 +508,6 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     DEBUG = opts.debug
+    IGNORE_WARNINGS = opts.ignorewarnings
     youtube_id = parse_id(args[0])
     import_youtube(youtube_id, opts.username, opts.password, opts.url, opts.name)

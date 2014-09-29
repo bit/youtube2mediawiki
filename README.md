@@ -1,22 +1,23 @@
-youtube2mediawiki - import youtube videos into mediawiki
+# youtube2mediawiki
 
-youtube2mediawiki allows you to download WebM videos from Youtube and import
-them into Mediawiki.
+youtube2mediawiki is a command line tool, that allows you to download WebM videos from Youtube and import them into Mediawiki.
 
-Usage: youtube2mediawiki.py [options] youtubeid
+## Usage 
 
- Options:
-  -h, --help            show this help message and exit
-  -u USERNAME, --username=USERNAME
-                        wiki username
-  -p PASSWORD, --password=PASSWORD
-                        wiki password (can also be provided via Y2M_PASSWORD
-                        environment vairable)
-  -w URL, --url=URL     wiki api url
-  -n NAME, --name=NAME  name of file on wiki, by default title on youtube is used
+```youtube2mediawiki.py [options] youtubeid```
+
+### Options
+
+option                            | description
+--------------------------------- | --------------------------------------------------------------------------
+-h, --help                        | show this help message and exit
+-u USERNAME, --username=USERNAME  | wiki username
+-p PASSWORD, --password=PASSWORD  | wiki password (can also be provided via Y2M_PASSWORD environment vairable)
+-w URL, --url=URL                 | wiki api url
+-n NAME, --name=NAME              | name of file on wiki, by default title on youtube is used
 
 
-NOTES:
+## Notes
 
 - If you run this on a shared server, you should not pass your password as an
   argument as it is visible via ps ax. Instead you can set an environment

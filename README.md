@@ -15,6 +15,8 @@ option                            | description
 -p PASSWORD, --password=PASSWORD  | wiki password (can also be provided via Y2M_PASSWORD environment vairable)
 -w URL, --url=URL                 | wiki api url
 -n NAME, --name=NAME              | name of file on wiki, by default title on youtube is used
+-d, --debug                       | output debug information
+-i, --ignore-warnings             | ignore warnings during upload
 
 
 ## Notes

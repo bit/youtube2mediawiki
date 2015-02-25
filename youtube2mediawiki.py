@@ -165,7 +165,7 @@ class Youtube:
         u = self.opener.open(url)
         data = u.read()
         u.close()
-        match = re.compile('"url_encoded_fmt_stream_map": "(.*?)"').findall(data)
+        match = re.compile('"url_encoded_fmt_stream_map".*?"(.*?)"').findall(data)
         streams = {}
         for x in match[0].split(','):
             stream = {}

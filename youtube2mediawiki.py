@@ -9,6 +9,7 @@ import json
 import mimetools
 import mimetypes
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -250,7 +251,7 @@ class Youtube:
         if video_streams: # and not (audio_streams xor MERGE_DASH)
             urls = self.get_urls(video_streams, audio_streams)
         else:
-            print "no WebM video found"
+            print 'No WebM video found'
             return False
 
         #download stream and save to file.
@@ -519,8 +520,32 @@ def safe_name(s):
     s = s.replace('__', '_').replace('__', '_')
     return s
 
+def ffmpeg_installed():
+    if (platform.system() == 'Linux' or platform.system() == 'Darwin'):
+        cmd_path = 'which'
+        ffmpeg = 'ffmpeg'
+    else: #platform.system() == 'Windows'
+        cmd_path = 'where'
+        ffmpeg = 'ffmpeg.exe'
+
+    if DEBUG:
+        print 'Testing for ' + ffmpeg + ' on ' + platform.system()
+    if 0 != subprocess.call([cmd_path, ffmpeg], stdout=open(os.devnull, 'wb'), stderr=subprocess.STDOUT):
+        ffmpeg = './' + ffmpeg
+        if not os.path.isfile(ffmpeg):
+            print 'Install ffmpeg or place ' + ffmpeg + ' in the current working directory (' + os.getcwd() + ')'
+            return False
+
+    if 0 == subprocess.call([ffmpeg, '-version'], stdout=open(os.devnull, 'wb'), stderr=subprocess.STDOUT):
+        return ffmpeg
+    else:
+        return False
+
 def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
     yt = Youtube()
+    ffmpeg = ffmpeg_installed()
+    if MERGE_DASH and not ffmpeg:
+        sys.exit(-1)
     wiki = Mediawiki(mediawiki_url, username, password)
     info = yt.info(youtube_id)
     d = tempfile.mkdtemp()
@@ -530,7 +555,7 @@ def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
         filename_video = os.path.join(d, "video.dat")
         filename_audio = os.path.join(d, "audio.dat")
         sucess = yt.download(youtube_id, filename_video, filename_audio) \
-            and ( 0 == subprocess.call(["ffmpeg", "-i", filename_video, "-i", filename_audio, "-c:v", "copy", "-c:a", "copy", filename], stdout=open(os.devnull, 'wb')) )
+            and ( 0 == subprocess.call([ffmpeg, "-i", filename_video, "-i", filename_audio, "-c:v", "copy", "-c:a", "copy", filename], stdout=open(os.devnull, 'wb'), stderr=subprocess.STDOUT) )
     else:
         sucess = yt.download(youtube_id, filename)
     if sucess:
@@ -576,7 +601,7 @@ if __name__ == "__main__":
     parser.add_option('-n', '--name', dest='name', help='name of file on wiki, by default title on youtube is used', type='string', default='')
     parser.add_option('-d', '--debug', dest='debug', help='output debug information', action="store_true")
     parser.add_option('-i', '--ignore-warnings', dest='ignorewarnings', help='ignore warnings during upload', action="store_true")
-    parser.add_option('-a', '--adaptive-streaming', dest='vp9', help='fetch HD VP9 stream + audio stream and merge both using ffmpeg (requires linux and ffmpeg installed)', action="store_true")
+    parser.add_option('-a', '--adaptive-streaming', dest='vp9', help='fetch HD VP9 stream + audio stream and merge both using ffmpeg', action="store_true")
     parser.add_option('-o', '--overwrite', dest='overwrite', help='force overwriting files at the destination wiki (requires --ignore-warnings)', action="store_true")
     (opts, args) = parser.parse_args()
     if not opts.password:

@@ -537,11 +537,11 @@ def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
             for lang in languages:
                 srt = yt.subtitles(youtube_id, lang)
                 if srt:
-                    name = u'TimedText:%s.%s.srt' % (
+                    subtitle_name = u'TimedText:%s.%s.srt' % (
                         (name or os.path.basename(filename)).replace(' ', '_'),
                         lang
                     )
-                    r = wiki.edit_page(name, srt, 'Imported from %s'%info['url'])
+                    r = wiki.edit_page(subtitle_name, srt, 'Imported from %s'%info['url'])
             print 'Uploaded to', result_url
         else:
             if DEBUG:

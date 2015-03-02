@@ -538,7 +538,7 @@ def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
         r = wiki.upload(filename, 'Imported %sfrom %s using youtube2mediawiki version %s '%(new_version, info['url'], __version__), description, name)
         if r and r.get('upload', {}).get('result') == 'Success':
             result_url = r['upload']['imageinfo']['descriptionurl']
-            languages = yt.subtitle_languages(youtube_id)
+            languages = '' if OVERWRITE else yt.subtitle_languages(youtube_id)
             for lang in languages:
                 srt = yt.subtitles(youtube_id, lang)
                 if srt:

@@ -11,6 +11,7 @@ import mimetypes
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import urllib2
 from urllib import unquote_plus
@@ -19,11 +20,13 @@ from xml.dom.minidom import parseString
 from StringIO import StringIO
 
 
-__version__ = 0.3
+__version__ = 0.4
 
 DEBUG=False
 IGNORE_WARNINGS=False
+MERGE_DASH=False
 USER_AGENT='youtube2mediawiki/%s (+http://www.mediawiki.org/wiki/User:BotInc/youtube2mediawiki)' % __version__
+YOUTUBE_USER_AGENT='Mozilla/5.0 (X11; Linux i686; rv:38.0) Gecko/20100101 Firefox/38.0'
 DESCRIPTION = '''=={{int:filedesc}}==
 {{Information
 |description=%(description)s
@@ -41,6 +44,34 @@ DESCRIPTION = '''=={{int:filedesc}}==
 [[Category:Uploaded with youtube2mediawiki]]
 %(wiki_categories)s
 '''
+VIDEO_QUALITY = [ # Higher index -> "better" quality
+                '278',
+                '242',
+                '167',
+                '243',
+                '168',
+                '218',
+                '219',
+                '244',
+                '245',
+                '246',
+                '169',
+                '247',
+                '302',
+                '170',
+                '248',
+                '303',
+                '271',
+                '308',
+                '272',
+                '313',
+                '315']
+AUDIO_QUALITY = [ # Higher index -> "better" quality
+                '171',
+                '249',
+                '250',
+                '172',
+                '251']
 
 # This pattern matches a character entity reference (a decimal numeric
 # references, a hexadecimal numeric reference, or a named reference).
@@ -87,8 +118,7 @@ class Youtube:
         self.cj = cookielib.CookieJar()
         self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
         self.opener.addheaders = [
-            ('User-Agent',
-             'Mozilla/5.0 (X11; Linux i686; rv:2.0) Gecko/20100101 Firefox/4.0'),
+            ('User-Agent', YOUTUBE_USER_AGENT),
             ('Accept-Language', 'en-us, en;q=0.50')
         ]
 
@@ -136,7 +166,6 @@ class Youtube:
         return [t.getAttribute('lang_code') for t in xml.getElementsByTagName('track')]
 
     def subtitles(self, id, language='en'):
-
         url = "http://www.youtube.com/api/timedtext?hl=en&v=%s&type=track&lang=%s&name&kind"%(id, language)
         u = self.opener.open(url)
         data = u.read()
@@ -159,45 +188,81 @@ class Youtube:
             n += 1
         return srt
 
-    def download(self, id, filename):
-        stream_type = 'video/webm'
+    def find_max(self, keys, quality):
+        max_itag_index = -1
+        for key in keys:
+            if quality.index(key) > max_itag_index:
+                max_itag_index = quality.index(key)
+        return quality[max_itag_index]
+
+    def get_url(self, stream):
+        if 'sig' in stream:
+            url = '%s&signature=%s' % (stream['url'], stream['sig'])
+        elif 'url' in stream:
+            url = stream['url']
+        else:
+            print 'Could not find a video url'
+            sys.exit(1)
+        return url
+
+    def get_urls(self, video_streams, audio_streams):
+        if not MERGE_DASH: # == not audio_streams
+            # for non adaptive streams a higher itag simply means higher quality
+            max_v_itag = max(video_streams.keys())
+            if DEBUG:
+                print ('Getting download url for itag=' + max_v_itag)
+            video_url = self.get_url(video_streams[max_v_itag])
+            return video_url, ''
+        max_v_itag = self.find_max(video_streams.keys(), VIDEO_QUALITY)
+        max_a_itag = self.find_max(audio_streams.keys(), AUDIO_QUALITY)
+        if DEBUG:
+            print 'Getting download urls for itags=[' + max_v_itag + ', ' + max_a_itag + ']'
+        audio_url = self.get_url(audio_streams[max_a_itag])
+        video_url = self.get_url(video_streams[max_v_itag])
+        return video_url, audio_url
+
+    def download(self, id, *filenames):
+        if MERGE_DASH: # == len(filenames)==2
+             format_map_regex = '"adaptive_fmts".*?"(.*?)"'
+        else: # len(filenames)==1:
+             format_map_regex = '"url_encoded_fmt_stream_map".*?"(.*?)"'
+        video_stream_type = 'video/webm'
+        audio_stream_type = 'audio/webm'
         url = "http://www.youtube.com/watch?v=%s" % id
         u = self.opener.open(url)
         data = u.read()
         u.close()
-        match = re.compile('"url_encoded_fmt_stream_map".*?"(.*?)"').findall(data)
-        streams = {}
+        match = re.compile(format_map_regex).findall(data)
+        video_streams = {}
+        audio_streams = {}
         for x in match[0].split(','):
             stream = {}
             for s in x.split('\\u0026'):
                 key, value = s.split('=')
                 value = unquote_plus(value)
                 stream[key] = value
-            if stream['type'].startswith(stream_type):
-                streams[stream['itag']] = stream
-        if streams:
-            s = max(streams.keys())
-            if 'sig' in streams[s]:
-                url = '%s&signature=%s' % (streams[s]['url'], streams[s]['sig'])
-            elif 'url' in streams[s]:
-                url = streams[s]['url']
-            else:
-                print 'Could not find a video url'
-                sys.exit(1)
-
+            if stream['type'].startswith(video_stream_type):
+                video_streams[stream['itag']] = stream
+            if stream['type'].startswith(audio_stream_type) and MERGE_DASH:
+                audio_streams[stream['itag']] = stream
+        if video_streams: # and not (audio_streams xor MERGE_DASH)
+            urls = self.get_urls(video_streams, audio_streams)
         else:
             print "no WebM video found"
             return False
 
-        #download video and save to file.
-        u = self.opener.open(url)
-        f = open(filename, 'w')
-        data = True
-        while data:
-            data = u.read(4096)
-            f.write(data)
-        f.close()
-        u.close()
+        #download stream and save to file.
+        for i, url in enumerate(urls):
+            if not url:
+                break
+            u = self.opener.open(url)
+            f = open(filenames[i], 'w')
+            data = True
+            while data:
+                data = u.read(4096)
+                f.write(data)
+            f.close()
+            u.close()
         return True
 
 class MultiPartForm(object):
@@ -446,7 +511,7 @@ def safe_name(s):
     s = s.strip()
     s = s.replace(' ', '_')
     s = re.sub(r'[:/\\]', '_', s)
-    s = re.sub(r'[<>\[\]\|\{\}$"\/]', '-', s)
+    s = re.sub(r'[<>\[\]\|\{\}$#"\/]', '-', s)
     s = s.replace('__', '_').replace('__', '_')
     return s
 
@@ -457,8 +522,15 @@ def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
     d = tempfile.mkdtemp()
     filename = os.path.join(d, u"%s.webm" % safe_name(info['title']))
     description = DESCRIPTION % info
-    if yt.download(youtube_id, filename):
-        r = wiki.upload(filename, 'Imported from %s'%info['url'], description, name)
+    if MERGE_DASH:
+        filename_video = os.path.join(d, "video.dat")
+        filename_audio = os.path.join(d, "audio.dat")
+        sucess = yt.download(youtube_id, filename_video, filename_audio) \
+            and ( 0 == subprocess.call(["ffmpeg", "-i", filename_video, "-i", filename_audio, "-c:v", "copy", "-c:a", "copy", filename], stdout=open(os.devnull, 'wb')) )
+    else:
+        sucess = yt.download(youtube_id, filename)
+    if sucess:
+        r = wiki.upload(filename, 'Imported from %s using youtube2mediawiki version %s '%(info['url'], __version__), description, name)
         if r and r.get('upload', {}).get('result') == 'Success':
             result_url = r['upload']['imageinfo']['descriptionurl']
             languages = yt.subtitle_languages(youtube_id)
@@ -477,7 +549,7 @@ def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
             else:
                 print 'Upload failed. Consider using the --debug option to identify the issue.'
     else:
-        print 'Download failed.'
+        print 'Download or ffmpeg command failed.' if MERGE_DASH else 'Download failed.'
     shutil.rmtree(d)
 
 def parse_id(url):
@@ -493,12 +565,13 @@ if __name__ == "__main__":
     usage = "Usage: %prog [options] youtubeid"
     parser = OptionParser(usage=usage)
     parser.add_option('-u', '--username', dest='username', help='wiki username', type='string')
-    parser.add_option('-p', '--password', dest='password', help='wiki password\n(can also be provided via Y2M_PASSWORD environment vairable)', type='string')
+    parser.add_option('-p', '--password', dest='password', help='wiki password\n(can also be provided via Y2M_PASSWORD environment variable)', type='string')
     parser.add_option('-w', '--url', dest='url', help='wiki api url [default:http://commons.wikimedia.org/w/api.php]',
                       default='http://commons.wikimedia.org/w/api.php', type='string')
     parser.add_option('-n', '--name', dest='name', help='name of file on wiki, by default title on youtube is used', type='string', default='')
     parser.add_option('-d', '--debug', dest='debug', help='output debug information', action="store_true")
     parser.add_option('-i', '--ignore-warnings', dest='ignorewarnings', help='ignore warnings during upload', action="store_true")
+    parser.add_option('-a', '--adaptive-streaming', dest='vp9', help='fetch HD VP9 stream + audio stream and merge both using ffmpeg (requires linux and ffmpeg installed)', action="store_true")
     (opts, args) = parser.parse_args()
     if not opts.password:
         opts.password = os.environ.get('Y2M_PASSWORD')
@@ -509,5 +582,6 @@ if __name__ == "__main__":
 
     DEBUG = opts.debug
     IGNORE_WARNINGS = opts.ignorewarnings
+    MERGE_DASH = opts.vp9
     youtube_id = parse_id(args[0])
     import_youtube(youtube_id, opts.username, opts.password, opts.url, opts.name)

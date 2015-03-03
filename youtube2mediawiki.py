@@ -25,6 +25,7 @@ __version__ = 0.4
 DEBUG=False
 IGNORE_WARNINGS=False
 MERGE_DASH=False
+OVERWRITE=False
 USER_AGENT='youtube2mediawiki/%s (+http://www.mediawiki.org/wiki/User:BotInc/youtube2mediawiki)' % __version__
 YOUTUBE_USER_AGENT='Mozilla/5.0 (X11; Linux i686; rv:38.0) Gecko/20100101 Firefox/38.0'
 DESCRIPTION = '''=={{int:filedesc}}==
@@ -212,7 +213,8 @@ class Youtube:
             if DEBUG:
                 print ('Getting download url for itag=' + max_v_itag)
             video_url = self.get_url(video_streams[max_v_itag])
-            return video_url, ''
+            audio_url = '' # audio and video in one file
+            return video_url, audio_url
         max_v_itag = self.find_max(video_streams.keys(), VIDEO_QUALITY)
         max_a_itag = self.find_max(audio_streams.keys(), AUDIO_QUALITY)
         if DEBUG:
@@ -414,7 +416,9 @@ class Mediawiki(object):
             'titles': page,
             'intoken': intoken
         })['query']['pages']
-        return '-1' in r and str(r['-1']['edittoken']) or None
+        return '-1' in r and str(r['-1']['edittoken']) or \
+               OVERWRITE and str(r.items()[0][1]['edittoken']) or \
+               None
 
     def upload(self, filename, description, text, name=''):
         CHUNKSIZE = 5*1024*1024
@@ -530,10 +534,11 @@ def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
     else:
         sucess = yt.download(youtube_id, filename)
     if sucess:
-        r = wiki.upload(filename, 'Imported from %s using youtube2mediawiki version %s '%(info['url'], __version__), description, name)
+        new_version = 'new version ' if OVERWRITE else ''
+        r = wiki.upload(filename, 'Imported %sfrom %s using youtube2mediawiki version %s '%(new_version, info['url'], __version__), description, name)
         if r and r.get('upload', {}).get('result') == 'Success':
             result_url = r['upload']['imageinfo']['descriptionurl']
-            languages = yt.subtitle_languages(youtube_id)
+            languages = '' if OVERWRITE else yt.subtitle_languages(youtube_id)
             for lang in languages:
                 srt = yt.subtitles(youtube_id, lang)
                 if srt:
@@ -572,6 +577,7 @@ if __name__ == "__main__":
     parser.add_option('-d', '--debug', dest='debug', help='output debug information', action="store_true")
     parser.add_option('-i', '--ignore-warnings', dest='ignorewarnings', help='ignore warnings during upload', action="store_true")
     parser.add_option('-a', '--adaptive-streaming', dest='vp9', help='fetch HD VP9 stream + audio stream and merge both using ffmpeg (requires linux and ffmpeg installed)', action="store_true")
+    parser.add_option('-o', '--overwrite', dest='overwrite', help='force overwriting files at the destination wiki (requires --ignore-warnings)', action="store_true")
     (opts, args) = parser.parse_args()
     if not opts.password:
         opts.password = os.environ.get('Y2M_PASSWORD')
@@ -583,5 +589,6 @@ if __name__ == "__main__":
     DEBUG = opts.debug
     IGNORE_WARNINGS = opts.ignorewarnings
     MERGE_DASH = opts.vp9
+    OVERWRITE = opts.overwrite
     youtube_id = parse_id(args[0])
     import_youtube(youtube_id, opts.username, opts.password, opts.url, opts.name)

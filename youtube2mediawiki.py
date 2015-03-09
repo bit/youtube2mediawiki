@@ -522,30 +522,30 @@ def safe_name(s):
 
 def ffmpeg_installed():
     if (platform.system() == 'Linux' or platform.system() == 'Darwin'):
-        cmd_path = 'which'
+        find_cmd = 'which'
         ffmpeg = 'ffmpeg'
     else: #platform.system() == 'Windows'
-        cmd_path = 'where'
+        find_cmd = 'where'
         ffmpeg = 'ffmpeg.exe'
 
     if DEBUG:
         print 'Testing for ' + ffmpeg + ' on ' + platform.system()
-    if 0 != subprocess.call([cmd_path, ffmpeg], stdout=open(os.devnull, 'wb'), stderr=subprocess.STDOUT):
-        ffmpeg = './' + ffmpeg
-        if not os.path.isfile(ffmpeg):
-            print 'Install ffmpeg or place ' + ffmpeg + ' in the current working directory (' + os.getcwd() + ')'
-            return False
 
-    if 0 == subprocess.call([ffmpeg, '-version'], stdout=open(os.devnull, 'wb'), stderr=subprocess.STDOUT):
-        return ffmpeg
-    else:
-        return False
+    try:
+        if 0 != subprocess.call([find_cmd, ffmpeg], stdout=open(os.devnull, 'wb'), stderr=subprocess.STDOUT):
+            ffmpeg = './' + ffmpeg
+        if 0 == subprocess.call([ffmpeg, '-version'], stdout=open(os.devnull, 'wb'), stderr=subprocess.STDOUT):
+            return ffmpeg
+    except Exception:
+        pass
+
+    print 'Install ffmpeg or place ' + ffmpeg + ' in the current working directory (' + os.getcwd() + ')'
+    sys.exit(-1)
 
 def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
     yt = Youtube()
-    ffmpeg = ffmpeg_installed()
-    if MERGE_DASH and not ffmpeg:
-        sys.exit(-1)
+    if MERGE_DASH:
+        ffmpeg = ffmpeg_installed()
     wiki = Mediawiki(mediawiki_url, username, password)
     info = yt.info(youtube_id)
     d = tempfile.mkdtemp()

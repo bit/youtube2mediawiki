@@ -17,7 +17,8 @@ option                            | description
 -n NAME, --name=NAME              | name of file on wiki, by default title on youtube is used
 -d, --debug                       | output debug information
 -i, --ignore-warnings             | ignore warnings during upload
-
+-a, --adaptive-streaming          | fetch HD VP9 stream + audio stream and merge both using ffmpeg
+-o, --overwrite                   | force overwriting files at the destination wiki (requires --ignore-warnings)
 
 ## Notes
 

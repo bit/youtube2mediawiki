@@ -231,11 +231,15 @@ class Youtube:
              format_map_regex = '"url_encoded_fmt_stream_map".*?"(.*?)"'
         video_stream_type = 'video/webm'
         audio_stream_type = 'audio/webm'
+        unavailable_message = '<h1 id="unavailable-message" class="message">'
         url = "http://www.youtube.com/watch?v=%s" % id
         u = self.opener.open(url)
         data = u.read()
         u.close()
         match = re.compile(format_map_regex).findall(data)
+        if not match and unavailable_message in data:
+            print "Video not available"
+            sys.exit(-1)
         video_streams = {}
         audio_streams = {}
         for x in match[0].split(','):

@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import traceback
 import urllib2
 from urllib import unquote_plus
 import webbrowser
@@ -203,8 +204,7 @@ class Youtube:
         elif 'url' in stream:
             url = stream['url']
         else:
-            print 'Could not find a video url'
-            sys.exit(1)
+            raise Exception('No download URL found')
         return url
 
     def get_urls(self, video_streams, audio_streams):
@@ -238,8 +238,7 @@ class Youtube:
         u.close()
         match = re.compile(format_map_regex).findall(data)
         if not match and unavailable_message in data:
-            print "Video not available"
-            sys.exit(-1)
+            raise Exception("YouTube video not available")
         video_streams = {}
         audio_streams = {}
         for x in match[0].split(','):
@@ -255,8 +254,7 @@ class Youtube:
         if video_streams: # and not (audio_streams xor MERGE_DASH)
             urls = self.get_urls(video_streams, audio_streams)
         else:
-            print 'No WebM video found'
-            return False
+            raise Exception('No WebM video found')
 
         #download stream and save to file.
         for i, url in enumerate(urls):
@@ -360,7 +358,8 @@ class Mediawiki(object):
         ]
         r = self.login()
         if not r['login']['result'] == 'Success':
-            print r
+            if DEBUG:
+                print r
             raise Exception('login failed')
 
     def post(self, form):
@@ -435,8 +434,7 @@ class Mediawiki(object):
         pagename = 'File:' + fn.replace(' ', '_')
         token = self.get_token(pagename, 'edit')
         if not token:
-            print "%s exists, can not upload" % pagename
-            return
+            raise Exception("%s exists, can not upload" % pagename)
         chunk = StringIO()
         filesize = os.stat(filename).st_size
         f = open(filename)
@@ -458,17 +456,18 @@ class Mediawiki(object):
         offset += CHUNKSIZE
         if 'error' in r:
             if DEBUG:
-                print r['error']
-            elif 'info' in r['error']:
-                print r['error']['info']
-            return r
+                if 'info' in r['error']:
+                    print r['error']['info']
+                else:
+                    print r['error']
+            raise Exception("Upload error") # return r
         filekey = r['upload']['filekey']
         while offset < filesize:
             if DEBUG:
                 print r
             if 'error' in r or r.get('status', {}).get('code', 200) != 200 or \
                 'error' in r.get('upload', {}):
-                return r
+                raise Exception("Upload error") # return r
             chunk = StringIO()
             f = open(filename)
             f.seek(offset)
@@ -505,7 +504,11 @@ class Mediawiki(object):
         r = self.api('upload', args_upload)
         if DEBUG:
             print r
-        return r
+        if r and r.get('upload', {}).get('result') == 'Success':
+            result_url = r['upload']['imageinfo']['descriptionurl']
+            return result_url
+        else:
+            raise Exception("Upload error during finalize")
 
     def edit_page(self, pagename, text, comment=''):
         token = self.get_token(pagename, 'edit')
@@ -543,8 +546,9 @@ def ffmpeg_installed():
     except Exception:
         pass
 
-    print 'Install ffmpeg or place ' + ffmpeg + ' in the current working directory (' + os.getcwd() + ')'
-    sys.exit(-1)
+    if DEBUG:
+        print 'Install ffmpeg or place ' + ffmpeg + ' in the current working directory (' + os.getcwd() + ')'
+    raise Exception("ffmpeg not found")
 
 def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
     yt = Youtube()
@@ -555,36 +559,33 @@ def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
     d = tempfile.mkdtemp()
     filename = os.path.join(d, u"%s.webm" % safe_name(info['title']))
     description = DESCRIPTION % info
-    if MERGE_DASH:
-        filename_video = os.path.join(d, "video.dat")
-        filename_audio = os.path.join(d, "audio.dat")
-        sucess = yt.download(youtube_id, filename_video, filename_audio) \
-            and ( 0 == subprocess.call([ffmpeg, "-i", filename_video, "-i", filename_audio, "-c:v", "copy", "-c:a", "copy", filename], stdout=open(os.devnull, 'wb'), stderr=subprocess.STDOUT) )
-    else:
-        sucess = yt.download(youtube_id, filename)
-    if sucess:
-        new_version = 'new version ' if OVERWRITE else ''
-        r = wiki.upload(filename, 'Imported %sfrom %s using youtube2mediawiki version %s '%(new_version, info['url'], __version__), description, name)
-        if r and r.get('upload', {}).get('result') == 'Success':
-            result_url = r['upload']['imageinfo']['descriptionurl']
-            languages = '' if OVERWRITE else yt.subtitle_languages(youtube_id)
-            for lang in languages:
-                srt = yt.subtitles(youtube_id, lang)
-                if srt:
-                    subtitle_name = u'TimedText:%s.%s.srt' % (
-                        (name or os.path.basename(filename)).replace(' ', '_'),
-                        lang
-                    )
-                    r = wiki.edit_page(subtitle_name, srt, 'Imported from %s'%info['url'])
-            print 'Uploaded to', result_url
+    result_url = None
+    try:
+        if MERGE_DASH:
+            filename_video = os.path.join(d, "video.dat")
+            filename_audio = os.path.join(d, "audio.dat")
+            yt.download(youtube_id, filename_video, filename_audio)
+            if not ( 0 == subprocess.call([ffmpeg, "-i", filename_video, "-i", filename_audio, "-c:v", "copy", "-c:a", "copy", filename], stdout=open(os.devnull, 'wb'), stderr=subprocess.STDOUT) ):
+                raise Exception('merge by ffmpeg failed')
         else:
-            if DEBUG:
-                print r
-            else:
-                print 'Upload failed. Consider using the --debug option to identify the issue.'
-    else:
-        print 'Download or ffmpeg command failed.' if MERGE_DASH else 'Download failed.'
-    shutil.rmtree(d)
+            yt.download(youtube_id, filename)
+
+        new_version = 'new version ' if OVERWRITE else ''
+        result_url = wiki.upload(filename, 'Imported %sfrom %s using youtube2mediawiki version %s '%(new_version, info['url'], __version__), description, name)
+        
+        languages = '' if OVERWRITE else yt.subtitle_languages(youtube_id)
+        for lang in languages:
+            srt = yt.subtitles(youtube_id, lang)
+            if srt:
+                subtitle_name = u'TimedText:%s.%s.srt' % (
+                    (name or os.path.basename(filename)).replace(' ', '_'),
+                    lang
+                )
+                r = wiki.edit_page(subtitle_name, srt, 'Imported from %s'%info['url'])
+    finally:
+        if result_url:
+            print 'Uploaded to', result_url
+        shutil.rmtree(d)
 
 def parse_id(url):
     match = re.compile('\?v=([^&]+)').findall(url)
@@ -620,4 +621,11 @@ if __name__ == "__main__":
     MERGE_DASH = opts.vp9
     OVERWRITE = opts.overwrite
     youtube_id = parse_id(args[0])
-    import_youtube(youtube_id, opts.username, opts.password, opts.url, opts.name)
+    try:
+        import_youtube(youtube_id, opts.username, opts.password, opts.url, opts.name)
+    except Exception as e:
+        if not DEBUG:
+            print e
+            print "Exception caught! Consider using the --debug option to identify the issue."
+        else:
+            traceback.print_exc()

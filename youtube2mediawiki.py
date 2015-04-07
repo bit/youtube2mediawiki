@@ -22,7 +22,7 @@ from xml.dom.minidom import parseString
 from StringIO import StringIO
 
 
-__version__ = 0.4
+__version__ = '0.4.1'
 
 DEBUG=False
 IGNORE_WARNINGS=False

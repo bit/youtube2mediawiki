@@ -14,10 +14,11 @@ option                            | description
 -u USERNAME, --username=USERNAME  | wiki username
 -p PASSWORD, --password=PASSWORD  | wiki password (can also be provided via Y2M_PASSWORD environment vairable)
 -w URL, --url=URL                 | wiki api url
--n NAME, --name=NAME              | name of file on wiki, by default title on youtube is used
+-n NAME, --name=NAME              | name of file on wiki, by default title on YouTube is used
 -d, --debug                       | output debug information
 -i, --ignore-warnings             | ignore warnings during upload
-
+-a, --adaptive-streaming          | fetch HD VP9 stream + audio stream and merge both using ffmpeg
+-o, --overwrite                   | force overwriting files at the destination wiki (requires --ignore-warnings)
 
 ## Notes
 

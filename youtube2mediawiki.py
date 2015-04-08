@@ -428,9 +428,6 @@ class Mediawiki(object):
     def upload(self, filename, description, text, name=''):
         CHUNKSIZE = 5*1024*1024
         offset = 0
-        if len(name) > 0:
-            name = re.sub(re.compile('^File:', re.IGNORECASE), '', name)
-            name = re.sub(re.compile('\.webm$', re.IGNORECASE), '', name) + '.webm'
         fn = name or os.path.basename(filename)
         pagename = 'File:' + fn.replace(' ', '_')
         token = self.get_token(pagename, 'edit')
@@ -547,6 +544,9 @@ def ffmpeg_installed():
     sys.exit(-1)
 
 def import_youtube(youtube_id, username, password, mediawiki_url, name=''):
+    if len(name) > 0:
+        name = re.sub(re.compile('^File:', re.IGNORECASE), '', name)
+        name = re.sub(re.compile('\.webm$', re.IGNORECASE), '', name) + '.webm'
     yt = Youtube()
     if MERGE_DASH:
         ffmpeg = ffmpeg_installed()
